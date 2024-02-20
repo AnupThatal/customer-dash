@@ -18,7 +18,7 @@ def data_collection():
 
     ]
     params = {
-        '$select':'unique_form_id,b10_sub_dmi,gb12_skip/gc01_skp1/gc20/c20,gb12_skip/gc01_skp1/gc20/c22,__system/submitterName,__system/reviewState,b02,unit_owners,gb12_skip/gc01_skp2/d08'
+        '$select':'unique_form_id,b10_sub_dmi,gb12_skip/gc01_skp1/gc20/c20,gb12_skip/gc01_skp1/gc20/c22,__system/submitterName,__system/reviewState,b02,unit_owners,gb12_skip/gc01_skp2/d08,__system/attachmentsPresent,__system/attachmentsExpected,meta/instanceName'
     }
     submission_entity_set = 'Submissions'
     username = 'anupthatal2@gmail.com'
@@ -45,6 +45,10 @@ def data_collection():
     final_df['b02-Longitude'] = final_df['b02'].apply(lambda x: x['coordinates'][0] if (x and 'coordinates' in x) else None)
     final_df['b02-Latitude'] = final_df['b02'].apply(lambda x: x['coordinates'][1] if (x and 'coordinates' in x) else None)
     final_df['gb12_skip-gc01_skp2-d08'] = final_df['gb12_skip'].apply(lambda x: x.get('gc01_skp2', {}).get('d08'))
+    final_df['AttachmentsPresent'] = final_df['__system'].apply(lambda x: x['attachmentsPresent'] if 'attachmentsPresent' in x else None)
+    final_df['AttachmentsExpected'] = final_df['__system'].apply(lambda x: x['attachmentsExpected'] if 'attachmentsExpected' in x else None)
+    final_df['InstanceName'] = final_df['meta'].apply(lambda x: x['instanceName'] if 'instanceName' in x else None)
+
 
     return final_df
     
@@ -106,17 +110,15 @@ app_ui = ui.page_fluid(
             ui.dataframe.output_data_frame('data_summary'),
 
             ),
+            ),
 
-              ui.div( {"style":"font-weight:bold;text-align:center;"},
+            ui.div( {"style":"font-weight:bold;text-align:center;"},
             ui.markdown(
                 """
                 ***Customer details***
                 """
             ),                       
-            ui.dataframe.output_data_frame('customer1'),
-
-            ),
-                       ),
+            ui.dataframe.output_data_frame('customer1'), ),
 
             ui.output_plot('data_details1'),
             ui.dataframe.output_data_frame('data_details2'),
@@ -287,18 +289,7 @@ def server(input,output, session):
 
         df.rename(columns={'b10_dmi':'DMA'},inplace=True)
 
-        df_c=df[df['gb12_skip-gc01_skp1-gc20-c20'] == str(x)]
-
-        # if df_c.empty:
-        #     df_c = df[df['gb12_skip-gc01_skp1-gc20-c22'] == str(x)]
-        #     df_c.rename(columns={
-        #     'unique_form_id': 'ID',
-        #     'b10_sub_dmi': 'Sub DMA',
-        #     'gb12_skip-gc01_skp1-gc22':'Connection no',
-        #     'unit_owners': 'Unit Owners',
-        #     'SubmitterName': 'Enumerator'}, inplace=True)
-
-        #     return df_c[['ID','Sub DMA','Unit Owners','Enumerator']]
+        df_c=df[(df['gb12_skip-gc01_skp1-gc20-c20'] == str(x)) |(df['gb12_skip-gc01_skp1-gc20-c22'] == str(x)) ]
         if df_c.empty:
             df_c = df[df['gb12_skip-gc01_skp2-d08'] == str(x)]
             df_c.rename(columns={
@@ -308,8 +299,7 @@ def server(input,output, session):
             'unit_owners': 'Unit Owners',
             'SubmitterName': 'Enumerator',
             'gb12_skip-gc01_skp2-d08':"Meter id"}, inplace=True)
-            return df_c[['ID','Sub DMA','Unit Owners','Meter id']]
-
+            return df_c[['ID','Sub DMA','Unit Owners','Meter id','InstanceName','AttachmentsPresent','AttachmentsExpected','ReviewState','Enumerator']]
 
         else:
             df_c.rename(columns={
@@ -317,9 +307,10 @@ def server(input,output, session):
             'b10_sub_dmi': 'Sub DMA',
             'gb12_skip-gc01_skp1-gc22': 'Customer no',
             'unit_owners': 'Unit Owners',
-            'SubmitterName': 'Enumerator'}, inplace=True)
+            'SubmitterName': 'Enumerator',
+            'ReviewState':'ReviewState'}, inplace=True)
             
-            return df_c[['ID','Sub DMA','Unit Owners','Enumerator']]
+            return df_c[['ID','Sub DMA','Unit Owners','InstanceName','AttachmentsPresent','AttachmentsExpected','ReviewState','Enumerator']]
     
     @session.download(filename="data.csv")
     async def downloadData():
